@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CAM/LU Analyzer — Lặp theo cột</title>
+<style>
+  :root{
+    --bg:#071016; --card:#0b1320; --panel:#0b1824; --muted:#9aa6b2;
+    --accent:#58a6ff; --ok:#3fb950; --bad:#f85149; --glass: rgba(255,255,255,0.02);
+    font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg),#071a26);color:#e6eef6}
+  .wrap{max-width:1100px;margin:18px auto;padding:18px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+  h1{font-size:20px;margin:0;color:var(--accent)}
+  p.lead{margin:0;color:var(--muted);font-size:13px}
+  .grid-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+  .card{background:linear-gradient(180deg,var(--card),rgba(255,255,255,0.01));padding:14px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.6);flex:1;min-width:280px}
+  label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
+  .row-inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  input[type=number]{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:#eaf4ff;width:110px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  button{background:var(--accent);color:#061016;border:0;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:700}
+  button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.05);color:var(--muted)}
+  button.danger{background:var(--bad);color:white}
+  .symbols{display:flex;gap:8px;margin-top:10px}
+  .sym-btn{background:#0f2330;border:1px solid rgba(255,255,255,0.03);color:var(--accent);padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:800}
+  .sym-btn.small{padding:6px 8px}
+  .table-wrap{margin-top:12px;overflow:auto}
+  table.pattern{border-collapse:collapse;width:100%;min-width:400px}
+  table.pattern th, table.pattern td{border:1px solid rgba(255,255,255,0.03);padding:8px;text-align:center}
+  table.pattern th{background:rgba(255,255,255,0.02);color:var(--muted);font-size:13px}
+  table.pattern td{height:42px;cursor:pointer;font-size:18px}
+  table.pattern td.selected{outline:3px solid rgba(88,166,255,0.18);background:rgba(88,166,255,0.03)}
+  .result{margin-top:14px;background:var(--panel);padding:12px;border-radius:8px}
+  table.result{width:100%;border-collapse:collapse}
+  table.result th, table.result td{border:1px solid rgba(255,255,255,0.03);padding:10px;text-align:center}
+  table.result th{background:#081826;color:var(--muted)}
+  .delta-pos{color:var(--ok);font-weight:700}
+  .delta-neg{color:var(--bad);font-weight:700}
+  .hint{font-size:13px;color:var(--muted);margin-top:8px}
+  @media (max-width:880px){ .grid-row{flex-direction:column} .card{min-width:unset} table.pattern{min-width:300px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Trình phân tích CAM / LU </h1>
+      <p class="lead">cre: TRẠC THOÒNG</p>
+    </div>
+    <div style="text-align:right">
+      <div class="hint">Ký hiệu: Λ , ━ , □ chọn ô rồi bấm ký hiệu. Hỗ trợ nhập bàn phím 1 ký tự.</div>
+    </div>
+  </header>
+
+  <div class="grid-row">
+    <!-- OLD -->
+    <div class="card">
+      <label><strong>ĐƠN CŨ 📜</strong></label>
+      <div class="row-inline">
+        <label>Tổng cam<input id="old-total" type="number" min="1" max="1000" value="84"></label>
+        <label>Số cột<input id="old-cols" type="number" min="1" max="120" value="4"></label>
+        <label>Số hàng<input id="old-rows" type="number" min="1" max="12" value="2"></label>
+      </div>
+      <div class="controls">
+        <button id="make-old">Tạo lưới</button>
+        <button id="sample-old" class="ghost">Tạo Mẫu Ví Dụ</button>
+        <button id="clear-old" class="ghost">Xoá</button>
+      </div>
+
+      <div class="symbols" style="margin-top:8px">
+        <button class="sym-btn" data-sym="Λ" data-target="old">Λ</button>
+        <button class="sym-btn" data-sym="━" data-target="old">━</button>
+        <button class="sym-btn" data-sym="□" data-target="old">□</button>
+        <button class="sym-btn small ghost" id="clear-cell" title="Xóa ô được chọn">Xóa ô</button>
+      </div>
+
+      <div class="table-wrap" id="wrap-old"></div>
+    </div>
+
+    <!-- NEW -->
+    <div class="card">
+      <label><strong>ĐƠN MỚI 📄</strong></label>
+      <div class="row-inline">
+        <label>Tổng cam<input id="new-total" type="number" min="1" max="1000" value="84"></label>
+        <label>Số cột<input id="new-cols" type="number" min="1" max="120" value="6"></label>
+        <label>Số hàng<input id="new-rows" type="number" min="1" max="12" value="2"></label>
+      </div>
+      <div class="controls">
+        <button id="make-new">Tạo lưới</button>
+        <button id="sample-new" class="ghost">Tạo Mẫu Ví Dụ</button>
+        <button id="clear-new" class="ghost">Xoá</button>
+      </div>
+
+      <div class="symbols" style="margin-top:8px">
+        <button class="sym-btn" data-sym="Λ" data-target="new">Λ</button>
+        <button class="sym-btn" data-sym="━" data-target="new">━</button>
+        <button class="sym-btn" data-sym="□" data-target="new">□</button>
+      </div>
+
+      <div class="table-wrap" id="wrap-new"></div>
+    </div>
+  </div>
+
+  <div style="margin-top:14px">
+    <div class="controls">
+      <button id="compute">Tính & Bù trừ</button>
+      <button id="export" class="ghost">Tải CSV</button>
+      <button id="reset" class="ghost">Reset</button>
+    </div>
+  </div>
+
+  <div class="result" id="result-area"></div>
+</div>
+
+<script>
+/* ---------- Helpers ---------- */
+const SYMBOLS = ["Λ","━","□"];
+function $(id){ return document.getElementById(id) }
+function create(tag, cls){ const e=document.createElement(tag); if(cls) e.className=cls; return e }
+
+/* ---------- Grid rendering ---------- */
+function makeGrid(containerId, cols, rows, prefix){
+  const wrap = $(containerId);
+  wrap.innerHTML = '';
+  const tbl = create('table','pattern');
+  // header columns
+  const thead = create('thead');
+  const htr = create('tr');
+  htr.appendChild(create('th')).textContent = ''; // empty corner
+  for(let c=0;c<cols;c++){
+    const th = create('th'); th.textContent = `c${c+1}`; htr.appendChild(th);
+  }
+  thead.appendChild(htr); tbl.appendChild(thead);
+  // body rows
+  const tbody = create('tbody');
+  for(let r=0;r<rows;r++){
+    const tr = create('tr');
+    const th = create('th'); th.textContent = `H${r+1}`; tr.appendChild(th);
+    for(let c=0;c<cols;c++){
+      const td = create('td');
+      td.dataset.col = c;
+      td.dataset.row = r;
+      td.dataset.grid = prefix;
+      td.addEventListener('click', ()=> selectCell(td));
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  tbl.appendChild(tbody);
+  wrap.appendChild(tbl);
+}
+
+/* ---------- Selection & input ---------- */
+let activeCell = null;
+function selectCell(td){
+  if(activeCell) activeCell.classList.remove('selected');
+  activeCell = td;
+  td.classList.add('selected');
+}
+
+/* allow keyboard typing (single char) to fill active cell */
+window.addEventListener('keydown', (e)=>{
+  if(!activeCell) return;
+  // accept common symbols or letters; restrict to one visible char
+  const val = e.key;
+  // allow our symbols or usual chars
+  if(SYMBOLS.includes(val) || val.length===1){
+    activeCell.textContent = val;
+    e.preventDefault();
+  }
+  if(e.key === "Backspace" || e.key === "Delete"){
+    activeCell.textContent = '';
+    e.preventDefault();
+  }
+});
+
+/* ---------- Symbol buttons (assign) ---------- */
+document.querySelectorAll('.sym-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const sym = btn.dataset.sym;
+    const target = btn.dataset.target; // old or new
+    // if activeCell exists and belongs to same grid/target -> assign
+    if(activeCell && activeCell.dataset.grid === target){
+      activeCell.textContent = sym;
+      return;
+    }
+    // otherwise find first empty cell in that grid and set
+    const wrap = target==='old' ? $('wrap-old') : $('wrap-new');
+    const td = wrap.querySelector('td:not(:empty)') ? null : wrap.querySelector('td');
+    // prefer first empty:
+    const empty = wrap.querySelector('td:not(:empty)') ? null : wrap.querySelector('td');
+    const firstEmpty = wrap.querySelector('td:not([data-filled])') || wrap.querySelector('td');
+    if(firstEmpty){ firstEmpty.textContent = sym; firstEmpty.dataset.filled = '1'; }
+  });
+});
+
+/* clear cell button */
+$('clear-cell').addEventListener('click', ()=>{ if(activeCell){ activeCell.textContent=''; } });
+
+/* ---------- Create / sample / clear handlers ---------- */
+$('make-old').addEventListener('click', ()=> {
+  const cols = parseInt($('old-cols').value)||1;
+  const rows = parseInt($('old-rows').value)||1;
+  makeGrid('wrap-old', cols, rows, 'old');
+});
+$('make-new').addEventListener('click', ()=> {
+  const cols = parseInt($('new-cols').value)||1;
+  const rows = parseInt($('new-rows').value)||1;
+  makeGrid('wrap-new', cols, rows, 'new');
+});
+
+$('clear-old').addEventListener('click', ()=> $('wrap-old').innerHTML='');
+$('clear-new').addEventListener('click', ()=> $('wrap-new').innerHTML='');
+
+$('sample-old').addEventListener('click', ()=> generateSample('wrap-old'));
+$('sample-new').addEventListener('click', ()=> generateSample('wrap-new'));
+
+function generateSample(wrapId){
+  const wrap = $(wrapId);
+  // if no grid, create small default based on inputs
+  const cfgPrefix = wrapId==='wrap-old' ? 'old' : 'new';
+  const cols = parseInt($(cfgPrefix+'-cols').value)||4;
+  const rows = parseInt($(cfgPrefix+'-rows').value)||2;
+  // fill random pattern but stable across clicks (pseudo-random)
+  const symbols = SYMBOLS;
+  // create grid if not exists
+  if(!wrap.querySelector('table')) makeGrid(wrapId, cols, rows, cfgPrefix);
+  const tds = wrap.querySelectorAll('td');
+  // random fill but deterministic-ish: use seeded pseudo-random using Date now
+  for(let td of tds){
+    td.textContent = symbols[Math.floor(Math.random()*symbols.length)];
+  }
+}
+
+/* ---------- Counting logic (COLUMN-BASED) ---------- */
+function readGridData(wrapId){
+  const wrap = $(wrapId);
+  const table = wrap.querySelector('table');
+  if(!table) return null;
+  const header = table.querySelector('thead tr');
+  const cols = header.children.length - 1; // first is corner
+  const bodyRows = table.querySelectorAll('tbody tr');
+  const rows = bodyRows.length;
+  // per-column counts: array of maps
+  const perCol = Array.from({length: cols}, ()=> ({}));
+  for(let r = 0; r < rows; r++){
+    const tr = bodyRows[r];
+    for(let c = 0; c < cols; c++){
+      const td = tr.children[c+1]; // +1 skip row header
+      const sym = (td && td.textContent) ? td.textContent.trim() : '';
+      if(!sym) continue;
+      perCol[c][sym] = (perCol[c][sym]||0) + 1;
+    }
+  }
+  return {cols, rows, perCol};
+}
+
+function countScaledByColumns(gridData, totalCams){
+  if(!gridData) return null;
+  const cols = gridData.cols;
+  const repeats = Math.floor(totalCams / cols);
+  const remainder = totalCams % cols;
+  const scaled = {}; // totals per symbol
+  for(let c=0;c<cols;c++){
+    const colMap = gridData.perCol[c] || {};
+    const mul = repeats + (c < remainder ? 1 : 0);
+    for(const sym in colMap){
+      scaled[sym] = (scaled[sym] || 0) + (colMap[sym] * mul);
+    }
+  }
+  return {scaled, repeats, remainder, cols};
+}
+
+/* ---------- Compute & render result ---------- */
+$('compute').addEventListener('click', ()=>{
+  const totalOld = parseInt($('old-total').value)||0;
+  const totalNew = parseInt($('new-total').value)||0;
+  const oldGrid = readGridData('wrap-old');
+  const newGrid = readGridData('wrap-new');
+  if(!oldGrid || !newGrid){
+    alert('Cần tạo lưới cho cả Đơn Cũ và Đơn Mới trước khi tính.');
+    return;
+  }
+  const oldCount = countScaledByColumns(oldGrid, totalOld);
+  const newCount = countScaledByColumns(newGrid, totalNew);
+
+  // union keys
+  const keys = new Set();
+  if(oldCount){ Object.keys(oldCount.scaled || {}).forEach(k=>keys.add(k)) }
+  if(newCount){ Object.keys(newCount.scaled || {}).forEach(k=>keys.add(k)) }
+  // ensure SYMBOLS order if present, else alphabetic
+  let keyList = Array.from(keys).sort((a,b)=>{
+    const ia = SYMBOLS.indexOf(a), ib = SYMBOLS.indexOf(b);
+    if(ia>=0 || ib>=0){ if(ia>=0 && ib>=0) return ia-ib; return ia>=0?-1:1; }
+    return a.localeCompare(b);
+  });
+
+  // build html
+  const wrap = $('result-area'); wrap.innerHTML = '';
+  const info = create('div'); info.className='hint';
+
+  wrap.appendChild(info);
+
+  const sub = create('div'); sub.className='hint'; sub.style.marginTop='6px';
+  sub.textContent = `Số lần lặp trọn (lặp): Đơn Cũ = ${oldCount.repeats} lần (+ dư ${oldCount.remainder} cột), Đơn Mới = ${newCount.repeats} lần (+ dư ${newCount.remainder} cột)`;
+  wrap.appendChild(sub);
+
+  const table = create('table','result');
+  const head = create('tr'); head.innerHTML = '<th>Ký hiệu</th><th>Đơn Cũ</th><th>Đơn Mới</th><th>Bù/Trừ</th>';
+  table.appendChild(head);
+  keyList.forEach(k=>{
+    const ov = oldCount.scaled[k]||0;
+    const nv = newCount.scaled[k]||0;
+    const d = nv - ov;
+    const tr = create('tr');
+    tr.innerHTML = `<td>${k}</td><td>${ov}</td><td>${nv}</td><td class="${d>0?'delta-pos':(d<0?'delta-neg':'')}">${d>0? '+'+d : d}</td>`;
+    table.appendChild(tr);
+  });
+  wrap.appendChild(table);
+
+  // store latest for export
+  window.latestResult = {keys:keyList, old:oldCount.scaled, neu:newCount.scaled, totalOld, totalNew};
+});
+
+/* ---------- Export CSV ---------- */
+$('export').addEventListener('click', ()=>{
+  const res = window.latestResult;
+  if(!res){ alert('Chưa có kết quả — bấm Tính & Bù trừ trước.'); return; }
+  let csv = 'Ký hiệu,Đơn Cũ,Đơn Mới,BùTrừ\\n';
+  res.keys.forEach(k=>{
+    const ov = res.old[k] || 0;
+    const nv = res.neu[k] || 0;
+    csv += `${k},${ov},${nv},${nv-ov}\\n`;
+  });
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'ketqua_cam_lu.csv'; a.click(); URL.revokeObjectURL(url);
+});
+
+/* ---------- Reset ---------- */
+$('reset').addEventListener('click', ()=>{
+  if(!confirm('Đặt lại toàn bộ?')) return;
+  $('wrap-old').innerHTML=''; $('wrap-new').innerHTML=''; $('result-area').innerHTML='';
+  $('old-total').value = 84; $('new-total').value = 84;
+  $('old-cols').value = 4; $('new-cols').value = 6;
+  $('old-rows').value = 2; $('new-rows').value = 2;
+  // render defaults
+  makeGrid('wrap-old', 4, 2, 'old');
+  makeGrid('wrap-new', 6, 2, 'new');
+});
+
+/* ---------- Init default grids ---------- */
+makeGrid('wrap-old', parseInt($('old-cols').value)||4, parseInt($('old-rows').value)||2, 'old');
+makeGrid('wrap-new', parseInt($('new-cols').value)||6, parseInt($('new-rows').value)||2, 'new');
+
+</script>
+</body>
+</html>
